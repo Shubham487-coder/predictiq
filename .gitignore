@@ -1,0 +1,33 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv_cuda/
+.venv/
+venv/
+
+# Data files (too large for GitHub)
+data/
+*.parquet
+*.csv
+*.pkl
+*.joblib
+
+# ML model files (too large)
+ml_models/*.pt
+ml_models/*.pth
+ml_models/*.pkl
+ml_models/*.joblib
+
+# Environment variables
+.env
+*.env
+
+# PyCharm
+.idea/
+
+# MLflow
+mlruns/
+
+# OS
+Thumbs.db
