@@ -3,6 +3,11 @@ Task 2: build_classifier_input
 Reads features_latest.csv, takes the most recent row per machine,
 builds the 70-feature dict matching ClassifierRequest,
 saves to data/processed/classifier_input.json
+
+Airflow integration:
+  - XCom: pulls features_latest.csv path from Task 1 (load_and_enrich)
+  - PREDICTIQ_PROCESSED_DIR Variable overrides the output directory
+  - Returns classifier_input.json path via XCom
 """
 from __future__ import annotations
 
@@ -16,7 +21,7 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
-PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+_FALLBACK_PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 
 # Exact order from api/endpoints/classifier.py FEATURE_NAMES
 CLASSIFIER_FEATURES = [
@@ -48,17 +53,41 @@ CLIP_BOUNDS = {
     "error_count_total_72h":  (0.0, 5.0),
 }
 
+INT_FIELDS = {"age", "model_model1", "model_model2", "model_model3", "model_model4"}
 
-def run():
-    csv_path = PROCESSED_DIR / "features_latest.csv"
-    print(f"[build_classifier_input] Reading {csv_path}...")
-    df = pd.read_csv(csv_path, parse_dates=["datetime"])
+
+def _get_paths(context: dict) -> tuple[Path, Path]:
+    """Returns (features_csv_path, output_json_path)."""
+    try:
+        from airflow.models import Variable
+
+        ti = context.get("ti")
+        if ti:
+            features_path = Path(ti.xcom_pull(task_ids="load_and_enrich"))
+            out_path = features_path.parent / "classifier_input.json"
+            return features_path, out_path
+
+        p = Variable.get("PREDICTIQ_PROCESSED_DIR", default_var=None)
+        if p:
+            d = Path(p)
+            return d / "features_latest.csv", d / "classifier_input.json"
+    except Exception:
+        pass
+
+    d = _FALLBACK_PROCESSED_DIR
+    return d / "features_latest.csv", d / "classifier_input.json"
+
+
+def run(**context):
+    features_path, out_path = _get_paths(context)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    print(f"[build_classifier_input] Reading {features_path}...")
+    df = pd.read_csv(features_path, parse_dates=["datetime"])
 
     # Most recent row per machine
     latest = df.sort_values("datetime").groupby("machineID").last().reset_index()
     print(f"[build_classifier_input] Building inputs for {len(latest)} machines...")
-
-    INT_FIELDS = {"age", "model_model1", "model_model2", "model_model3", "model_model4"}
 
     records = []
     for _, row in latest.iterrows():
@@ -71,12 +100,11 @@ def run():
             record[feat] = int(val) if feat in INT_FIELDS else val
         records.append(record)
 
-    out_path = PROCESSED_DIR / "classifier_input.json"
     with open(out_path, "w") as f:
         json.dump(records, f)
 
     print(f"[build_classifier_input] Saved {len(records)} records to {out_path}")
-    return str(out_path)
+    return str(out_path)   # ← XCom: Task 4 pulls this path
 
 
 if __name__ == "__main__":

@@ -1,4 +1,17 @@
+"""
+Task 6: save_to_postgres
+Reads classifier_results.json and rul_results.json, inserts all rows
+into predictiq_db with a shared pipeline_run_at timestamp.
+
+Airflow integration:
+  - XCom: pulls classifier_results.json path from Task 4 (run_classifier)
+  - XCom: pulls rul_results.json path from Task 5 (run_rul)
+  - Airflow Connection 'postgres_predictiq' provides DB credentials
+    (falls back to hardcoded localhost config for standalone use)
+  - Returns pipeline_run_at ISO string via XCom
+"""
 from __future__ import annotations
+
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -6,9 +19,9 @@ from pathlib import Path
 import psycopg2
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 
-DB_CONFIG = {
+_FALLBACK_PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+_FALLBACK_DB_CONFIG = {
     "host":     "127.0.0.1",
     "port":     5432,
     "dbname":   "predictiq_db",
@@ -17,27 +30,62 @@ DB_CONFIG = {
 }
 
 
-def run():
+def _get_config(context: dict) -> tuple[dict, Path, Path]:
+    """Returns (db_config, classifier_path, rul_path)."""
+    db_config       = _FALLBACK_DB_CONFIG.copy()
+    classifier_path = _FALLBACK_PROCESSED_DIR / "classifier_results.json"
+    rul_path        = _FALLBACK_PROCESSED_DIR / "rul_results.json"
+
+    try:
+        from airflow.hooks.base import BaseHook
+
+        try:
+            conn_obj = BaseHook.get_connection("postgres_predictiq")
+            db_config = {
+                "host":     conn_obj.host,
+                "port":     int(conn_obj.port or 5432),
+                "dbname":   conn_obj.schema,
+                "user":     conn_obj.login,
+                "password": conn_obj.password,
+            }
+        except Exception:
+            pass
+
+        ti = context.get("ti")
+        if ti:
+            xcom_classifier = ti.xcom_pull(task_ids="api_calls.run_classifier")
+            xcom_rul        = ti.xcom_pull(task_ids="api_calls.run_rul")
+            if xcom_classifier:
+                classifier_path = Path(xcom_classifier)
+            if xcom_rul:
+                rul_path = Path(xcom_rul)
+
+    except Exception:
+        pass
+
+    return db_config, classifier_path, rul_path
+
+
+def run(**context):
+    db_config, classifier_path, rul_path = _get_config(context)
     run_at = datetime.now(timezone.utc)
 
-    # ── 1. Load results from Tasks 4 and 5 ───────────────────────────────────
-    print("[save_to_postgres] Loading classifier_results.json...")
-    with open(PROCESSED_DIR / "classifier_results.json") as f:
+    print(f"[save_to_postgres] Loading {classifier_path}...")
+    with open(classifier_path) as f:
         classifier_results = json.load(f)
 
-    print("[save_to_postgres] Loading rul_results.json...")
-    with open(PROCESSED_DIR / "rul_results.json") as f:
+    print(f"[save_to_postgres] Loading {rul_path}...")
+    with open(rul_path) as f:
         rul_results = json.load(f)
 
-    print(f"[save_to_postgres] {len(classifier_results)} classifier rows, {len(rul_results)} RUL rows")
+    print(f"[save_to_postgres] {len(classifier_results)} classifier rows, "
+          f"{len(rul_results)} RUL rows")
 
-    # ── 2. Insert into PostgreSQL ─────────────────────────────────────────────
-    conn = psycopg2.connect(**DB_CONFIG)
+    conn = psycopg2.connect(**db_config)
     try:
-        with conn:  # auto commit/rollback
+        with conn:
             cur = conn.cursor()
 
-            # ── Classifier results ────────────────────────────────────────────
             classifier_sql = """
                 INSERT INTO classifier_results (
                     machine_id, overall_status, priority,
@@ -57,9 +105,7 @@ def run():
             """
             classifier_rows = [
                 (
-                    r["machine_id"],
-                    r["overall_status"],
-                    r["priority"],
+                    r["machine_id"], r["overall_status"], r["priority"],
                     r["comp1"]["failure_probability"], r["comp1"]["alert"], r["comp1"]["status"],
                     r["comp2"]["failure_probability"], r["comp2"]["alert"], r["comp2"]["status"],
                     r["comp3"]["failure_probability"], r["comp3"]["alert"], r["comp3"]["status"],
@@ -71,7 +117,6 @@ def run():
             cur.executemany(classifier_sql, classifier_rows)
             print(f"[save_to_postgres] Inserted {len(classifier_rows)} classifier rows")
 
-            # ── RUL results ───────────────────────────────────────────────────
             rul_sql = """
                 INSERT INTO rul_results (
                     machine_id, component,
@@ -81,12 +126,9 @@ def run():
             """
             rul_rows = [
                 (
-                    r["machine_id"],
-                    r["component"],
-                    r["predicted_rul_hours"],
-                    r["day_bucket"],
-                    r["day_label"],
-                    r["interpretation"],
+                    r["machine_id"], r["component"],
+                    r["predicted_rul_hours"], r["day_bucket"],
+                    r["day_label"], r["interpretation"],
                     run_at,
                 )
                 for r in rul_results

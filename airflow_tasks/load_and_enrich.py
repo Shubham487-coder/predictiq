@@ -2,11 +2,15 @@
 Task 1: load_and_enrich
 Calls build_features() from feature_engineering.py, optionally filters
 to a simulation cutoff datetime (as_of), and saves to features_latest.csv.
+
+Airflow integration:
+  - as_of is read from dag_run.conf["as_of"] when run via DAG
+  - PREDICTIQ_PROCESSED_DIR Variable overrides the output directory
+  - Returns the output CSV path via XCom (automatic PythonOperator return)
 """
 from __future__ import annotations
 
 import sys
-from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -16,7 +20,18 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from ml_models.feature_engineering import build_features
 
-PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+_FALLBACK_PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
+
+
+def _processed_dir() -> Path:
+    try:
+        from airflow.models import Variable
+        p = Variable.get("PREDICTIQ_PROCESSED_DIR", default_var=None)
+        if p:
+            return Path(p)
+    except Exception:
+        pass
+    return _FALLBACK_PROCESSED_DIR
 
 
 def run(as_of: str | None = None, **context):
@@ -29,9 +44,12 @@ def run(as_of: str | None = None, **context):
     if as_of is None and context.get("dag_run"):
         as_of = context["dag_run"].conf.get("as_of")
 
+    processed_dir = _processed_dir()
+    processed_dir.mkdir(parents=True, exist_ok=True)
+
     print(f"[load_and_enrich] as_of={as_of or 'ALL DATA'}")
+    print(f"[load_and_enrich] Output dir: {processed_dir}")
     print("[load_and_enrich] Building features from raw CSVs...")
-    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
     features, nan_counts, nan_rows, rows_after = build_features()
 
@@ -42,12 +60,11 @@ def run(as_of: str | None = None, **context):
         features = features[features["datetime"] <= cutoff].reset_index(drop=True)
         print(f"[load_and_enrich] Filtered {before} → {len(features)} rows (cutoff: {cutoff})")
 
-    out_path = PROCESSED_DIR / "features_latest.csv"
+    out_path = processed_dir / "features_latest.csv"
     features.to_csv(out_path, index=False)
     print(f"[load_and_enrich] Done. Saved {len(features)} rows to {out_path}")
-    return str(out_path)
+    return str(out_path)   # ← XCom: downstream tasks pull this path
 
 
 if __name__ == "__main__":
-    # Test with a specific date
     run(as_of="2015-08-01 06:00:00")
