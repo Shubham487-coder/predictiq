@@ -58,6 +58,11 @@ def run(**context):
     out_path = _get_output_path(context)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # ── Read as_of from Airflow dag_run conf ─────────────────────────────────
+    as_of = None
+    if context.get("dag_run"):
+        as_of = context["dag_run"].conf.get("as_of")
+
     print("[build_rul_input] Loading raw telemetry and errors...")
     telemetry = pd.read_csv(RAW_DIR / "PdM_telemetry.csv", parse_dates=["datetime"])
     errors    = pd.read_csv(RAW_DIR / "PdM_errors.csv",    parse_dates=["datetime"])
@@ -67,6 +72,13 @@ def run(**context):
 
     print("[build_rul_input] Engineering 6h features (reusing training code)...")
     enriched = enrich_telemetry(telemetry, errors)
+
+    # ── Apply as_of cutoff ────────────────────────────────────────────────────
+    if as_of:
+        cutoff = pd.Timestamp(as_of)
+        before = len(enriched)
+        enriched = enriched[enriched["datetime"] <= cutoff].reset_index(drop=True)
+        print(f"[build_rul_input] Filtered {before} → {len(enriched)} rows (cutoff: {cutoff})")
 
     print(f"[build_rul_input] Extracting last {SEQUENCE_LENGTH} rows per machine...")
     records = []
@@ -90,7 +102,7 @@ def run(**context):
         json.dump(records, f)
 
     print(f"[build_rul_input] Saved {len(records)} sequences to {out_path}")
-    return str(out_path)   # ← XCom: Task 5 pulls this path
+    return str(out_path)
 
 
 if __name__ == "__main__":
