@@ -175,5 +175,3 @@ airflow dags trigger predictiq_pipeline --conf '{"as_of": "2015-06-01 12:00:00"}
     #  api_health → t1 → [t2, t3] (parallel) → api_group → t6
     #
     api_health >> t1 >> [t2, t3] >> api_group >> t6
-
-is this it or is it broken still
