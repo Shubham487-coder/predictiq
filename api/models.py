@@ -122,7 +122,7 @@ class ClassifierRequest(BaseModel):
         json_schema_extra={
             "example": {
                 "machine_id": 47,
-                "alert_threshold": 0.7,
+                "alert_threshold": 0.5,
                 "volt": 171.2, "rotate": 445.3,
                 "pressure": 108.1, "vibration": 41.5,
                 "volt_mean_24h": 169.8, "volt_std_24h": 12.1,
@@ -163,7 +163,7 @@ class ClassifierRequest(BaseModel):
 
     # --- Machine identity (metadata, not a model feature) ---
     machine_id: int = Field(..., ge=1, le=100, description="Machine ID (1-100), used for logging only")
-    alert_threshold: float = Field(default=0.7, ge=0.0, le=1.0,
+    alert_threshold: float = Field(default=0.5, ge=0.0, le=1.0,
                                    description="Probability threshold for triggering alert (default 0.7)")
 
     # --- Raw sensor readings ---

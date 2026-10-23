@@ -70,19 +70,13 @@ def _run_classifier_batch(
 
 
 def _make_component_prediction(prob: float, threshold: float) -> ComponentPrediction:
-    alert = prob >= threshold
-    if prob >= 0.8:
+    alert = prob >= 0.5
+    if prob >= 0.7:
         status = "CRITICAL"
-    elif prob >= threshold:
+    elif prob >= 0.5:
         status = "WARNING"
     else:
         status = "HEALTHY"
-    return ComponentPrediction(
-        failure_probability=round(prob, 4),
-        alert=alert,
-        status=status,
-        threshold_used=threshold,
-    )
 
 
 def _compute_overall_status(
