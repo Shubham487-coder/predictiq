@@ -137,6 +137,7 @@ services:
       AIRFLOW_ROLE: scheduler
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}
+      PYTHONPATH: /opt/airflow
       POSTGRES_HOST: postgres
       POSTGRES_PORT: "5432"
       POSTGRES_USER: ${POSTGRES_USER}
@@ -163,6 +164,7 @@ services:
     container_name: predictiq_webserver
     environment:
       AIRFLOW_ROLE: webserver
+      PYTHONPATH: /opt/airflow
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: ${AIRFLOW__DATABASE__SQL_ALCHEMY_CONN}
       POSTGRES_HOST: postgres
