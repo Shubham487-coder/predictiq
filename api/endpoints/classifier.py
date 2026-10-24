@@ -77,6 +77,7 @@ def _make_component_prediction(prob: float, threshold: float) -> ComponentPredic
         status = "WARNING"
     else:
         status = "HEALTHY"
+    return ComponentPrediction(probability=prob, alert=alert, status=status)
 
 
 def _compute_overall_status(
