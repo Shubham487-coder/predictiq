@@ -169,7 +169,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "8080:8080"
+      - "8081:8080"
     depends_on:
       scheduler:
         condition: service_healthy
