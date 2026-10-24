@@ -7,12 +7,13 @@ Airflow integration:
   - XCom: pulls classifier_results.json path from Task 4 (run_classifier)
   - XCom: pulls rul_results.json path from Task 5 (run_rul)
   - Airflow Connection 'postgres_predictiq' provides DB credentials
-    (falls back to hardcoded localhost config for standalone use)
+    (falls back to environment variables for standalone use)
   - Returns pipeline_run_at ISO string via XCom
 """
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -22,11 +23,11 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 _FALLBACK_PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 _FALLBACK_DB_CONFIG = {
-    "host":     "127.0.0.1",
-    "port":     5432,
+    "host":     os.getenv("POSTGRES_HOST", "127.0.0.1"),
+    "port":     int(os.getenv("POSTGRES_PORT", "5432")),
     "dbname":   "predictiq_db",
-    "user":     "postgres",
-    "password": "Goodluck@1234",
+    "user":     os.getenv("POSTGRES_USER", "postgres"),
+    "password": os.getenv("POSTGRES_PASSWORD", ""),
 }
 
 
