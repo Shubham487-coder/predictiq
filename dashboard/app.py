@@ -9,7 +9,7 @@ import json
 import random
 import subprocess
 from datetime import datetime, timezone
-
+import os
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -344,9 +344,13 @@ PLOTLY_THEME = dict(
 )
 
 # ── DB config ─────────────────────────────────────────────────────────────────
+
 DB_CONFIG = {
-    "host": "127.0.0.1", "port": 5432, "dbname": "predictiq_db",
-    "user": "postgres", "password": "Goodluck@1234",
+    "host": os.getenv("POSTGRES_HOST", "127.0.0.1"),
+    "port": int(os.getenv("POSTGRES_PORT", "5432")),
+    "dbname": os.getenv("POSTGRES_DB", "predictiq_db"),
+    "user": os.getenv("POSTGRES_USER", "postgres"),
+    "password": os.getenv("POSTGRES_PASSWORD", ""),
 }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
