@@ -45,7 +45,7 @@ RUN mkdir -p /opt/airflow/data/processed /opt/airflow/data/raw
 
 # Entrypoint script
 COPY --chown=airflow:root docker/airflow/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN sed -i 's/\r//' /entrypoint.sh && chmod +x /entrypoint.sh
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD airflow jobs check --job-type SchedulerJob --hostname "$(hostname)" || exit 1
