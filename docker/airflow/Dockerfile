@@ -31,7 +31,12 @@ RUN pip install --no-cache-dir \
     httpx==0.27.2 \
     pandas==2.2.3 \
     numpy==1.26.4 \
-    xgboost==2.1.1
+    xgboost==2.1.1 \
+    mlflow==2.16.2 \
+    scikit-learn==1.5.2
+
+RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
+    torch==2.4.1+cpu
 
 WORKDIR /opt/airflow
 
