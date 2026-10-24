@@ -396,13 +396,17 @@ def load_latest_run() -> tuple[pd.DataFrame, pd.DataFrame, datetime | None]:
 
 
 def trigger_dag(as_of: str) -> bool:
-    exec_date = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
-    result = subprocess.run(
-        ["airflow", "dags", "test", "predictiq_pipeline", exec_date,
-         "--conf", json.dumps({"as_of": as_of})],
-        capture_output=True, text=True, timeout=600,
-    )
-    return result.returncode == 0
+    try:
+        import httpx
+        resp = httpx.post(
+            "http://webserver:8080/api/v1/dags/predictiq_pipeline/dagRuns",
+            json={"conf": {"as_of": as_of}},
+            auth=("admin", "admin"),
+            timeout=30,
+        )
+        return resp.status_code in (200, 201)
+    except Exception:
+        return False
 
 
 def random_as_of() -> str:
