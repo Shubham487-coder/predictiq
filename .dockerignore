@@ -50,7 +50,7 @@ ml_models/rul_regression/evaluate*.py
 data/
 
 # ── Docker files themselves (no need inside image) ────────────
-docker/
+
 docker-compose.yml
 Dockerfile
 
