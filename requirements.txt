@@ -7,7 +7,8 @@ pydantic==2.9.2
 
 # ML models
 xgboost==2.1.1
-torch==2.4.1
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.4.1+cpu
 numpy==1.26.4
 pandas==2.2.3
 scikit-learn==1.5.2

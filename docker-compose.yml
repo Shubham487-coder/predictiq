@@ -15,7 +15,7 @@
 #   docker compose down -v             # stop + remove volumes
 # ============================================================
 
-version: "3.9"
+
 
 # ── Reusable fragments ─────────────────────────────────────────
 x-airflow-common: &airflow-common
