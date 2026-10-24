@@ -37,7 +37,7 @@ x-airflow-common: &airflow-common
     POSTGRES_PORT: ${POSTGRES_PORT}
     POSTGRES_USER: ${POSTGRES_USER}
     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
+  volumes:
     - airflow_logs:/opt/airflow/logs
     - ./data:/opt/airflow/data
   depends_on:
